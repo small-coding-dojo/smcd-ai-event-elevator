@@ -91,10 +91,20 @@ confirm the car icon moves to the top.
 
 - What happens when the dashboard loads before the backend has emitted any event (cold
   start)? The dashboard MUST show an "Awaiting data" state rather than defaulting to an
-  arbitrary floor.
+  arbitrary floor. On connect, `GetBuildingConfiguration` and `GetCurrentElevatorState`
+  MUST be called concurrently; no floor or shaft content is rendered until both
+  responses are available. Any `FloorEvent` that arrives during this window is held in
+  memory; once both responses are available, the snapshot is applied and the held event
+  supersedes the snapshot only if the snapshot is older. If `GetCurrentElevatorState`
+  returns a null or empty result (elevator has never moved), the "Awaiting data" state
+  persists until the first live `FloorEvent` arrives.
 - What happens when events arrive in rapid succession (e.g., elevator passing multiple
   floors quickly)? The display MUST update on every `FloorEvent` received; no events
-  are skipped or coalesced — each floor-by-floor position change is shown.
+  are skipped or coalesced — each floor-by-floor position change is shown. When a
+  `FloorEvent` arrives while a previous car-icon animation is still in progress, the
+  in-progress animation MUST be immediately cancelled and a new ≤200 ms animation MUST
+  begin from the car's current visual position to the new floor. No animation queueing
+  and no dropping of intermediate floor positions is permitted.
 - What happens when the backend reports an unknown or invalid floor number? The dashboard
   MUST show a fault indicator rather than silently displaying incorrect data.
 - How does the display handle a building with only 2 floors vs. one with 10+ floors? The
@@ -111,24 +121,49 @@ confirm the car icon moves to the top.
   the event being emitted.
 - **FR-002**: The dashboard MUST display the elevator's current motion state:
   "Moving Up", "Moving Down", or "Stationary".
-- **FR-003**: The dashboard MUST display a stale-data warning when live data has not
-  refreshed within 5 seconds. When connectivity recovers, the dashboard MUST
-  auto-reconnect without operator action and MUST display a brief "Connection restored"
-  banner that dismisses automatically after a few seconds.
-- **FR-004**: The dashboard MUST show an "Awaiting data" state on initial load until the
-  first event is received from the backend.
+- **FR-003**: The dashboard MUST display distinct indicators for three connection states:
+  (a) **Stale-data warning**: displayed when the SignalR connection is confirmed lost
+  (`onclose`, retries exhausted); shows the last-known floor and direction. MUST appear
+  within 5 seconds of connection loss being detected. MUST NOT appear while the
+  connection is open, even if no `FloorEvent` has arrived recently.
+  (b) **Reconnecting indicator**: displayed while SignalR is actively attempting to
+  reconnect (`onreconnecting`); visually distinct from the stale-data warning. The
+  last-known floor and direction remain visible beneath it.
+  (c) **Connection restored banner**: displayed when connectivity recovers
+  (`onreconnected`); dismisses automatically after a few seconds without operator
+  action. The stale/reconnecting indicator clears immediately when this banner appears.
+  On reconnection, `GetCurrentElevatorState` MUST be called immediately and the
+  returned snapshot applied before resuming live `FloorEvent` processing, so the
+  display reflects the elevator's actual current state rather than a potentially
+  missed position.
+  An open-but-idle connection (no FloorEvents, connection healthy) MUST NOT trigger
+  any of the above indicators.
+- **FR-004**: The dashboard MUST show an "Awaiting data" state on initial load until BOTH
+  `BuildingConfiguration` and the initial `ElevatorState` snapshot (from
+  `GetCurrentElevatorState`) have been received. These two calls MUST be made
+  concurrently immediately after the SignalR connection is established. No floor or
+  shaft content is rendered until both responses are available; any `FloorEvent` that
+  arrives during this window MUST be held in memory and applied once both responses
+  are present, superseding the held event if it conflicts with the snapshot.
 - **FR-005**: The dashboard MUST render a vertical shaft diagram showing all configured
   floors and the elevator car's current position. On each FloorEvent, the car icon MUST
   animate with a brief slide (≤200 ms) to the new floor position; no inter-floor
-  interpolation beyond this discrete per-event transition is permitted.
+  interpolation beyond this discrete per-event transition is permitted. If a FloorEvent
+  arrives while a prior animation is still in progress, the in-progress animation MUST
+  be immediately cancelled and a new ≤200 ms animation MUST begin from the car's current
+  visual position to the new target floor. Animation queueing and dropping of
+  intermediate floor positions are both prohibited.
 - **FR-006**: All data displayed MUST be sourced exclusively from backend events; no
   client-side inference or reconstruction of state is permitted.
 - **FR-007**: The dashboard MUST be read-only and MUST NOT expose any controls that send
   commands to the backend.
 - **FR-011**: The dashboard MUST display current elevator state only; no historical event
   log or trip history is shown.
-- **FR-008**: The dashboard MUST meet WCAG 2.1 AA accessibility standards — contrast,
-  keyboard navigation, and screen-reader labels for all state indicators.
+- **FR-008**: The dashboard MUST meet WCAG 2.1 AA **visual** accessibility standards:
+  contrast ratios (≥ 4.5:1 for normal text, ≥ 3:1 for large text and UI component
+  boundaries) and motion safety (no content that flashes more than 3 times per second).
+  Keyboard navigation and screen-reader compatibility are explicitly out of scope for
+  this feature.
 - **FR-009**: State transitions (floor change, direction change) MUST NOT rely on color
   alone; each state MUST also use an icon or text label.
 - **FR-010**: The dashboard MUST function correctly for buildings configured with 2 to 20
@@ -147,6 +182,11 @@ confirm the car icon moves to the top.
   is sourced from the backend, not hardcoded. Floors are numbered as non-negative
   integers starting at 0 (ground floor = 0, first upper floor = 1, etc.), following
   the German convention. No basement or mezzanine labels.
+- **GetCurrentElevatorState**: A hub method invoked by the frontend immediately after
+  connection (and again after each reconnect) to retrieve the latest `ElevatorState`
+  snapshot. Returns null if the elevator has not yet reported any position. This call
+  ensures the dashboard reflects current elevator state on startup and after any
+  disconnection gap, without waiting for the next live `FloorEvent`.
 
 ## Success Criteria *(mandatory)*
 
@@ -154,16 +194,28 @@ confirm the car icon moves to the top.
 
 - **SC-001**: Elevator floor and motion state updates appear on screen within 500 ms of
   the backend event being emitted, verified by end-to-end timing observation.
-- **SC-002**: The stale-data indicator appears no later than 5 seconds after backend
-  connectivity is lost, verified by disconnection simulation.
-- **SC-003**: The dashboard passes WCAG 2.1 AA automated accessibility checks with zero
-  violations on all state indicators.
+- **SC-002**: The stale-data indicator appears no later than 5 seconds after the SignalR
+  connection loss is detected (onreconnecting / onclose), verified by disconnection
+  simulation. The indicator MUST NOT appear when the connection is open but the elevator
+  is idle.
+- **SC-003**: The dashboard passes WCAG 2.1 AA visual accessibility checks with zero
+  contrast or motion violations on all state indicators. Keyboard navigation and
+  screen-reader compliance are out of scope and excluded from this criterion.
 - **SC-004**: An operator unfamiliar with the system can correctly identify the current
   floor, motion state, and direction within 5 seconds of viewing the dashboard.
 - **SC-005**: The dashboard correctly handles buildings configured with 2, 5, and 20
   floors without layout overflow or visual defects.
 
 ## Clarifications
+
+### Session 2026-03-13
+
+- Q: When a FloorEvent arrives while a previous ≤200 ms car-icon animation is still in progress, what should the animation do? → A: Immediately cancel the in-progress animation and start a new ≤200 ms animation from the car's current visual position to the new floor. No queueing; no dropping of intermediate positions.
+- Q: If a FloorEvent arrives before BuildingConfiguration is received on cold start, what should the dashboard do? → A: Hold the FloorEvent in memory; keep the "Awaiting data" state visible until both BuildingConfiguration and the first FloorEvent are available, then render all content at once. No partial or degraded view.
+- Q: Should the stale-data banner appear only on confirmed connection loss, or also when the connection is open but no FloorEvent has arrived within 5 s? → A: Only on confirmed connection loss (SignalR onreconnecting / onclose). An open-but-idle connection is treated as live; no stale banner for event silence alone.
+- Q: What should the UI show during active SignalR reconnection attempts? → A: A distinct "Reconnecting…" indicator, visually separate from the stale-data warning. Last-known floor and direction remain visible beneath it.
+- Q: On reconnect, should the dashboard recover missed floor positions or resume from the next live event? → A: Call GetCurrentElevatorState on reconnect to recover the current elevator state before resuming live FloorEvents. The same call MUST also be made immediately on initial startup, concurrently with GetBuildingConfiguration.
+- Q: Is WCAG 2.1 AA scoped to full accessibility (including screen-reader) or visual only? → A: Visual accessibility only — contrast ratios (≥ 4.5:1 text, ≥ 3:1 UI components) and motion safety. Keyboard navigation and screen-reader compatibility are explicitly out of scope.
 
 ### Session 2026-03-09
 

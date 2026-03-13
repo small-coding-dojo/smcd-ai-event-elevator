@@ -123,8 +123,9 @@ safely. Testability is a first-class design constraint, not an afterthought.
 
 - **Backend**: .NET (C#), event-driven via `EventAggregator` singleton pattern.
   Framework version: inherit from `EventElevator.csproj`; MUST NOT downgrade.
-- **Frontend**: TODO(FRONTEND_STACK): No frontend framework selected yet. Once chosen,
-  record here. MUST support real-time event subscription (e.g., SignalR, WebSockets, SSE).
+- **Frontend**: Next.js 15 (App Router), TypeScript, React 19. Real-time subscription via
+  `@microsoft/signalr` client connecting to the ASP.NET Core SignalR hub. All SignalR
+  components MUST be `'use client'` components. Decided: 2026-03-13 (001-operator-dashboard).
 - **Testing**: xUnit (as established by `EventElevator.Tests`). Frontend tests MUST use a
   framework compatible with the chosen frontend stack.
 - **Communication**: Backend MUST expose a real-time push mechanism for frontend event
