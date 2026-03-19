@@ -77,11 +77,14 @@ received `FloorEvent`.
 |-------|------|-------------|
 | `currentFloor` | `number` | Floor number from the last `FloorEvent` |
 | `direction` | `ElevatorDirection` | Direction from the last `FloorEvent` |
-| `lastEventAt` | `Date` | Client-side timestamp of when the event was received (for stale detection) |
+| `lastEventAt` | `Date` | Client-side timestamp of when the event was received; used for cold-start tie-breaking only (never displayed) |
 | `backendTimestamp` | `string` | ISO 8601 timestamp from the `FloorEvent.timestamp` field |
 
-**Note**: `lastEventAt` uses the client clock only for stale-data detection (FR-003). It is never
-displayed to the operator. All displayed timestamps come from `backendTimestamp`.
+**Note**: `lastEventAt` uses the client clock to record when an event was received locally. It is
+used only for cold-start tie-breaking (comparing against `ElevatorStateDto.timestamp` to determine
+which is newer) and is never displayed to the operator. All displayed timestamps come from
+`backendTimestamp`. Stale-data detection is handled exclusively by SignalR lifecycle events
+(`onreconnecting`, `onclose`) — there is no client-side idle timer.
 
 ---
 
@@ -92,10 +95,11 @@ Drives banner visibility and stale overlay. Maps directly to SignalR connection 
 | Value | SignalR Hook | UI Effect |
 |-------|-------------|-----------|
 | `AwaitingData` | Initial; connected but no `FloorEvent` yet | "Awaiting data" placeholder (FR-004) |
-| `Connected` | `onreconnected` or first event received | Normal operation |
-| `Stale` | ≥ 5 s since last `FloorEvent` with no disconnect | Stale-data warning banner (FR-003) |
-| `Reconnecting` | `onreconnecting` | "Reconnecting…" banner + stale overlay |
-| `Disconnected` | `onclose` (retries exhausted) | Stale-data warning, last-known floor shown |
+| `Connected` | `onreconnected` or first event received | Normal operation, no banner |
+| `Reconnecting` | `onreconnecting` | "Reconnecting…" banner; last-known floor remains visible |
+| `Disconnected` | `onclose` (retries exhausted) | "Stale data" warning banner; last-known floor remains visible |
+
+> **Note**: An open connection with no recent `FloorEvent` (elevator stationary) is treated as `Connected` — no stale banner. The stale warning only appears after SignalR itself confirms the connection is lost. Detection lag is governed by SignalR's `ServerTimeout` (default 30 s); this is acceptable for this dashboard.
 
 ---
 
@@ -105,11 +109,9 @@ Drives banner visibility and stale overlay. Maps directly to SignalR connection 
 Initial load
     └─► AwaitingData
             ├─► Connected (first FloorEvent received)
-            │       ├─► Stale (5 s timer expires with no new FloorEvent)
-            │       │       └─► Reconnecting (SignalR detects drop)
-            │       │               └─► Connected (onreconnected + FloorEvent)
-            │       │               └─► Disconnected (retries exhausted)
-            │       └─► Reconnecting (SignalR detects drop mid-session)
+            │       └─► Reconnecting (SignalR onreconnecting)
+            │               ├─► Connected (onreconnected + snapshot applied)
+            │               └─► Disconnected (onclose, retries exhausted)
             └─► Disconnected (connection fails before first event)
 ```
 

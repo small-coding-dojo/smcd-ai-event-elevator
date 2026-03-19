@@ -56,9 +56,9 @@ const config = await connection.invoke<BuildingConfiguration>('GetBuildingConfig
 ```
 
 ```csharp
-// C# hub method
-public Task<BuildingConfiguration> GetBuildingConfiguration()
-    => Task.FromResult(_configService.GetBuildingConfiguration());
+// C# hub method — reads from IConfiguration, key "Building:TotalFloors"
+public Task<BuildingConfigurationDto> GetBuildingConfiguration()
+    => Task.FromResult(new BuildingConfigurationDto(_config.GetValue<int>("Building:TotalFloors")));
 ```
 
 **Returns**: [`BuildingConfiguration`](../data-model.md#2-buildingconfiguration-backend--frontend-fetched-once-on-connect)
@@ -73,12 +73,13 @@ public Task<BuildingConfiguration> GetBuildingConfiguration()
 
 | Event | Client action |
 |-------|--------------|
-| Connected | Invoke `GetBuildingConfiguration`; set state to `AwaitingData` |
+| Connected | Invoke `GetBuildingConfiguration` and `GetCurrentElevatorState` concurrently; set state to `AwaitingData` |
 | `ReceiveFloorEvent` received | Update `ElevatorState`; set state to `Connected` |
-| `onreconnecting` | Set state to `Reconnecting`; show banner |
-| `onreconnected` | Re-invoke `GetBuildingConfiguration`; set state to `Connected` |
-| `onclose` | Set state to `Disconnected`; retain last-known floor |
-| 5 s timer fires with no event | Set state to `Stale`; show stale-data banner |
+| `onreconnecting` | Set state to `Reconnecting`; show "Reconnecting…" banner |
+| `onreconnected` | Re-invoke `GetCurrentElevatorState`; apply snapshot; set state to `Connected` |
+| `onclose` | Set state to `Disconnected`; show "Stale data" banner; retain last-known floor |
+
+> **Note**: An open connection with no recent `FloorEvent` does NOT trigger any banner. Stale-data warning appears only on confirmed connection loss (`onclose`). Detection lag is governed by SignalR's `ServerTimeout` (default 30 s).
 
 **Reconnect policy**: `withAutomaticReconnect([0, 2000, 5000, 10000])` — retries at 0, 2, 5, 10 s.
 After exhausting retries, `onclose` fires.
@@ -117,9 +118,13 @@ const state = await connection.invoke<ElevatorState | null>('GetCurrentElevatorS
 ```
 
 ```csharp
-// C# hub method
+// C# hub method — reads directly from EventAggregator (single source of truth, Constitution III)
 public Task<ElevatorStateDto?> GetCurrentElevatorState()
-    => Task.FromResult(_elevatorStateService.GetCurrentState());
+{
+    var last = EventAggregator.GetEventAggregator().LastFloorEvent();
+    return Task.FromResult(last is null ? null
+        : new ElevatorStateDto(last.FloorNumber, last.Direction, last.Timestamp));
+}
 
 public record ElevatorStateDto(int FloorNumber, ElevatorDirection Direction, DateTimeOffset Timestamp);
 ```
@@ -140,3 +145,4 @@ apply snapshot before resuming live `FloorEvent` processing.
 |---------|------|---------|
 | 1.0 | 2026-03-13 | Initial definition |
 | 1.1 | 2026-03-13 | Added GetCurrentElevatorState hub method (called on connect and reconnect) |
+| 1.2 | 2026-03-19 | Removed 5 s idle-timer Stale trigger; stale warning fires only on confirmed connection loss (onclose). Open-but-idle connection treated as Connected. |

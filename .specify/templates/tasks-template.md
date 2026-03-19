@@ -8,7 +8,9 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**:
+- **Backend (xUnit)**: MANDATORY per Constitution V — unit tests MUST cover event creation, event aggregation, and any new service that participates in the event pipeline. Always generate backend test tasks for these. Test coverage MUST NOT drop below existing levels.
+- **Frontend (Jest/RTL, Playwright)**: OPTIONAL — only include if explicitly requested in the feature specification.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -79,12 +81,15 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Backend Tests for User Story 1 (MANDATORY if story adds backend event/aggregation logic) ✅
 
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+> **Constitution V**: Write these FIRST; ensure they FAIL before implementation.
 
-- [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T010 [P] [US1] xUnit test: [event creation or aggregation behavior] in EventElevator.Tests/[ClassName]Tests.cs
+
+### Frontend Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+
+- [ ] T011 [P] [US1] RTL/Playwright test for [user journey] in frontend/tests/[name].test.ts
 
 ### Implementation for User Story 1
 
@@ -105,10 +110,13 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+### Backend Tests for User Story 2 (MANDATORY if story adds backend event/aggregation logic) ✅
 
-- [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T018 [P] [US2] xUnit test: [event creation or aggregation behavior] in EventElevator.Tests/[ClassName]Tests.cs
+
+### Frontend Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+
+- [ ] T019 [P] [US2] RTL/Playwright test for [user journey] in frontend/tests/[name].test.ts
 
 ### Implementation for User Story 2
 
@@ -127,10 +135,13 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+### Backend Tests for User Story 3 (MANDATORY if story adds backend event/aggregation logic) ✅
 
-- [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+- [ ] T024 [P] [US3] xUnit test: [event creation or aggregation behavior] in EventElevator.Tests/[ClassName]Tests.cs
+
+### Frontend Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+
+- [ ] T025 [P] [US3] RTL/Playwright test for [user journey] in frontend/tests/[name].test.ts
 
 ### Implementation for User Story 3
 
@@ -153,7 +164,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] Documentation updates in docs/
 - [ ] TXXX Code cleanup and refactoring
 - [ ] TXXX Performance optimization across all stories
-- [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
+- [ ] TXXX [P] Additional frontend unit tests (if requested) in frontend/tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
 
@@ -178,7 +189,8 @@ Examples of foundational tasks (adjust based on your project):
 
 ### Within Each User Story
 
-- Tests (if included) MUST be written and FAIL before implementation
+- Backend xUnit tests MUST be written and FAIL before implementation (Constitution V)
+- Frontend tests (if included) MUST be written and FAIL before implementation
 - Models before services
 - Services before endpoints
 - Core implementation before integration

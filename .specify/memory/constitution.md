@@ -1,26 +1,16 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: (template) → 1.0.0
-Modified principles: N/A (initial ratification from blank template)
-Added sections:
-  - Core Principles (5 principles)
-  - Technology Stack Constraints
-  - Development Workflow
-  - Governance
-Removed sections: N/A (template placeholders replaced)
+Version change: 1.0.0 → 1.1.0
+Modified principles: V — Simplicity & Testability (expanded test strategy guidance)
+Added sections: none
+Removed sections: none
 Templates reviewed:
-  - .specify/templates/plan-template.md ✅ — "Constitution Check" gate aligns with principles below
-  - .specify/templates/spec-template.md ✅ — functional requirements and success criteria sections
-    remain consistent; no mandatory section changes required
-  - .specify/templates/tasks-template.md ✅ — task phases and parallel patterns unchanged;
-    task categories (Setup, Foundational, User Story, Polish) cover separation and UI quality tasks
-  - .specify/templates/constitution-template.md ✅ — source template, no changes needed
+  - .specify/templates/tasks-template.md ✅ — updated 2026-03-19 to reflect mandatory backend
+    tests and frontend-optional split; mock-avoidance guidance consistent with Principle V below
 Follow-up TODOs:
   - TODO(RATIFICATION_DATE): Confirm original adoption date; set to 2026-03-09 (today) as
     this is the initial fill. Update if the project pre-dates this conversation.
-  - No frontend framework has been selected yet; update Principle II and the Technology Stack
-    section once the stack is decided.
 -->
 
 # Event Elevator Constitution
@@ -116,8 +106,21 @@ Complexity MUST be justified; simplicity is the default:
 - Test coverage for the backend elevator control logic MUST NOT drop below existing levels
   when new features are added.
 
+**Test strategy — mock avoidance**:
+- Mocks are a tool of last resort. Prefer real collaborators (in-memory implementations,
+  `WebApplicationFactory`, test doubles with real behavior) over mock frameworks.
+- Integration tests SHOULD exercise real component wiring end-to-end; only substitute at
+  the outermost I/O boundary (e.g., a real SignalR test client connecting to a real
+  `TestServer`) rather than mocking internal seams.
+- Unit tests are appropriate when a function or method contains non-trivial logic
+  (branching, transformation, calculation). Pure delegation code (no logic) does not
+  require a unit test; cover it at the integration layer instead.
+- When a mock cannot be avoided, document why in a comment in the test file.
+
 **Rationale**: An elevator control system that cannot be tested safely cannot be shipped
-safely. Testability is a first-class design constraint, not an afterthought.
+safely. Testability is a first-class design constraint, not an afterthought. Mock-heavy
+test suites create a false sense of coverage: they test that you wired a mock correctly,
+not that the system works.
 
 ## Technology Stack Constraints
 
@@ -156,4 +159,4 @@ safely. Testability is a first-class design constraint, not an afterthought.
 - **Guidance file**: Refer to `.specify/memory/constitution.md` (this file) as the runtime
   governance reference during all speckit workflow steps.
 
-**Version**: 1.0.0 | **Ratified**: 2026-03-09 | **Last Amended**: 2026-03-09
+**Version**: 1.1.0 | **Ratified**: 2026-03-09 | **Last Amended**: 2026-03-19
