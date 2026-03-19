@@ -19,6 +19,17 @@ var app = builder.Build();
 app.UseCors("Frontend");
 app.MapHub<ElevatorHub>("/hubs/elevator");
 
+app.MapPost("/api/simulate/floor", (int floor, string direction) =>
+{
+    if (!Enum.TryParse<EventElevator.Events.ElevatorDirection>(direction, true, out var dir))
+        return Results.BadRequest($"Invalid direction: {direction}. Use Up, Down, or Stationary.");
+
+    EventElevator.EventAggregator.GetEventAggregator()
+        .Add(new EventElevator.Events.FloorEvent(floor, dir, DateTimeOffset.UtcNow));
+
+    return Results.Ok(new { floor, direction = dir.ToString() });
+});
+
 app.Run();
 
 public partial class Program { }
