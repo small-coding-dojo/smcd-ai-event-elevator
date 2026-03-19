@@ -1,5 +1,12 @@
 .idea/.idea.EventElevator/.idea/copilot.data.migration.agent.xml
 
+### Next.js / Node.js ###
+.next/
+out/
+.env*.local
+dist/
+build/
+
 # Created by https://www.toptal.com/developers/gitignore/api/rider,jetbrains+all,vim,visualstudiocode,visualstudio,csharp,macos,windows,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=rider,jetbrains+all,vim,visualstudiocode,visualstudio,csharp,macos,windows,linux
 

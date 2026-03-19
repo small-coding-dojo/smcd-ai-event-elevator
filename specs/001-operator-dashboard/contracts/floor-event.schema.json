@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "floor-event.schema.json",
+  "title": "FloorEvent",
+  "description": "Emitted by the backend SignalR hub once per floor as the elevator arrives at or passes through that floor. Contract version: 1.0",
+  "type": "object",
+  "required": ["floorNumber", "direction", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "floorNumber": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 19,
+      "description": "Floor the elevator is at or passing through. 0 = ground floor (German convention)."
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["Up", "Down", "Stationary"],
+      "description": "Direction of travel at the moment this event was emitted."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp when the backend processed this event. Source of truth for display; never use the client clock for displayed timestamps."
+    }
+  }
+}
